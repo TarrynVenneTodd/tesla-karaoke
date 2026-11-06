@@ -140,7 +140,7 @@
 
     <div class="card">
       <h3>Spotify (hands-free)</h3>
-      <p class="help">Follows whatever your Spotify account is playing, including the car's Spotify app. Needs your own free Spotify developer app and an active Premium plan. Setup steps are in the README.</p>
+      <p class="help">Follows whatever your Spotify account is playing, including the car's Spotify app. No microphone needed. Needs an active Premium plan and your own free Spotify developer app: at developer.spotify.com/dashboard, tap Create app, add the Redirect URI shown below, tick Web API, Save, then copy the Client ID into the box here.</p>
       <div class="row"><span class="row-label">Status</span><span id="spStatus" class="pill">Not connected</span></div>
       <label class="field">
         <span>Spotify Client ID</span>
@@ -154,6 +154,7 @@
         <button id="spConnect" class="primary" type="button">Connect Spotify</button>
         <button id="spDisconnect" class="secondary" type="button">Disconnect</button>
       </div>
+      <div id="spMsg" class="note" role="status"></div>
       <label class="row toggle">
         <span class="row-label">Follow what Spotify is playing</span>
         <input id="optFollow" type="checkbox">
@@ -166,7 +167,7 @@
 
     <div class="card">
       <h3>Listen (identify the song with the microphone)</h3>
-      <p class="help">Records a few seconds of cabin audio, identifies the song with AudD, then jumps the lyrics to the right spot. Works with any source: radio, Apple Music, Bluetooth. Needs Tesla software 2026.26 or newer.</p>
+      <p class="help">Records a few seconds of cabin audio, identifies the song with AudD, then jumps the lyrics to the right spot. Note: in a Tesla, the car pauses your music while a web page uses the microphone, so Listen won't work there. Use Spotify or Manual in the car.</p>
       <label class="field">
         <span>AudD API token</span>
         <input id="auddToken" type="text" placeholder="From dashboard.audd.io (type test to try a few free IDs)" spellcheck="false" autocapitalize="off">

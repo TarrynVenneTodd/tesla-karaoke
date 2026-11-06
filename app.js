@@ -17,7 +17,7 @@
   // ------------------------------------------------------------------
   // Constants
   // ------------------------------------------------------------------
-  var VERSION = '1.0.0';
+  var VERSION = '1.0.1';
   var LRCLIB = 'https://lrclib.net';
   var LRCLIB_CLIENT = 'CarKaraoke/' + VERSION + ' (' + location.origin + ')';
   var SPOTIFY_SCOPES = 'user-read-currently-playing';
@@ -698,10 +698,23 @@
     });
   }
 
+  // Message shown right under the Connect button (visible while Settings is open).
+  function spNote(text, ok) {
+    var el = $('spMsg');
+    if (el) { el.textContent = text || ''; el.className = 'note' + (ok ? ' ok' : ''); }
+  }
+
   function spConnect() {
     var cid = (settings.spotifyClientId || '').trim();
-    if (!cid) { toast('Paste your Spotify Client ID first'); return; }
-    if (!window.crypto || !crypto.subtle) { toast('Open this page over https to connect Spotify'); return; }
+    if (!cid) {
+      spNote('Paste your Spotify Client ID in the box above first. You get it by creating a free app at developer.spotify.com/dashboard (steps above).');
+      return;
+    }
+    if (!window.crypto || !crypto.subtle || !window.TextEncoder) {
+      spNote('This browser can’t do the secure Spotify login. Make sure the address starts with https://');
+      return;
+    }
+    spNote('Opening the Spotify login…', true);
     var verifier = randString(64);
     var state = randString(16);
     store.set('sp.pkce', { verifier: verifier, state: state, cid: cid });
@@ -716,6 +729,8 @@
         state: state
       });
       location.href = 'https://accounts.spotify.com/authorize?' + p.toString();
+    }).catch(function (e) {
+      spNote('Couldn’t start the Spotify login: ' + ((e && e.message) || e));
     });
   }
 
@@ -958,10 +973,16 @@
     }).then(function (s) { mic.stream = s; return s; });
   }
 
-  function releaseMic() {
-    stopMicTest();
+  // Turn the microphone fully off. Some cars (Tesla) pause their music while a
+  // page holds the mic, so it's released the moment a clip or test is done.
+  function stopStream() {
     if (mic.stream) mic.stream.getTracks().forEach(function (t) { t.stop(); });
     mic.stream = null;
+  }
+
+  function releaseMic() {
+    stopMicTest();
+    stopStream();
   }
 
   function micErrorText(e) {
@@ -1117,6 +1138,7 @@
     getMic().then(function (stream) {
       return recordClip(stream, settings.clipSeconds);
     }).then(function (clip) {
+      stopStream();   // let the car's music resume as soon as the clip is recorded
       setListenUI(true, 'Identifying…');
       setBanner('Identifying…');
       return auddIdentify(clip).then(function (r) { return { r: r, clip: clip }; });
@@ -1142,6 +1164,7 @@
     }).catch(function (e) {
       flashBanner(micErrorText(e), 7000);
     }).then(function () {
+      stopStream();
       listenState.busy = false;
       listenState.nextAutoAt = Date.now() + 20000;
       setListenUI(false);
@@ -1197,6 +1220,7 @@
     if (b) b.textContent = 'Start test';
     var m = $('micMeter');
     if (m) m.style.transform = 'scaleX(0)';
+    if (!listenState.busy) stopStream();
   }
 
   // ------------------------------------------------------------------
