@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Car Karaoke</title>
+  <meta name="description" content="Synced karaoke lyrics for the Tesla in-car browser">
+  <meta name="theme-color" content="#07090c">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%2307090c'/%3E%3Cpath fill='%23ffd166' d='M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Reusable icons (SVG, because emoji may not render in the car's browser) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M11 6v12L2.5 12 11 6zm10 0v12l-8.5-6L21 6z"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M13 6v12l8.5-6L13 6zM3 6v12l8.5-6L3 6z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></symbol>
+  <symbol id="i-sync" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6a6 6 0 0 1 5.66 8l1.46 1.46A8 8 0 0 0 12 4zm0 14a6 6 0 0 1-5.66-8L4.88 8.54A8 8 0 0 0 12 20v3l4-4-4-4v3z"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+  <symbol id="i-tune" viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></symbol>
+</svg>
+
+<div id="app">
+  <header class="topbar">
+    <div class="now">
+      <div id="songTitle" class="song-title">No song loaded</div>
+      <div id="songArtist" class="song-artist">Search a song, tap Listen, or connect Spotify in Settings</div>
+    </div>
+    <div class="status">
+      <button id="modeChip" class="chip" type="button" aria-label="Lyrics source">Manual</button>
+      <div class="time-col">
+        <span id="timeReadout" class="time">0:00</span>
+        <span id="offsetReadout" class="offset"></span>
+      </div>
+    </div>
+    <div class="progress" aria-hidden="true"><div id="progressFill"></div></div>
+  </header>
+
+  <main class="stage">
+    <div id="lyrics" class="lyrics" aria-live="off"></div>
+
+    <div id="emptyState" class="empty">
+      <div class="empty-title">Pick a song to sing along</div>
+      <div class="empty-actions">
+        <button class="big-action" type="button" data-action="search">
+          <svg class="ic"><use href="#i-search"/></svg>Search a song
+        </button>
+        <button class="big-action" type="button" data-action="listen">
+          <svg class="ic"><use href="#i-mic"/></svg>Listen
+        </button>
+      </div>
+      <div class="empty-note">For hands-free lyrics, connect Spotify in Settings.</div>
+    </div>
+
+    <div id="banner" class="banner hidden" role="status"></div>
+    <div id="toast" class="toast hidden" role="status"></div>
+  </main>
+
+  <nav class="controls" aria-label="Playback controls">
+    <button id="btnBack" class="ctl" type="button" aria-label="Lyrics are ahead of the singer: move them back half a second">
+      <svg class="ic"><use href="#i-back"/></svg><span class="lbl">Lyrics ahead</span>
+    </button>
+    <button id="btnPlay" class="ctl ctl-main" type="button" aria-label="Start or pause">
+      <svg class="ic"><use id="playIcon" href="#i-play"/></svg><span id="playLabel" class="lbl">Start</span>
+    </button>
+    <button id="btnFwd" class="ctl" type="button" aria-label="Lyrics are behind the singer: move them forward half a second">
+      <svg class="ic"><use href="#i-fwd"/></svg><span class="lbl">Lyrics behind</span>
+    </button>
+    <button id="btnListen" class="ctl" type="button" aria-label="Listen and identify the song">
+      <svg class="ic"><use href="#i-mic"/></svg><span id="listenLabel" class="lbl">Listen</span>
+    </button>
+    <button id="btnSong" class="ctl" type="button" aria-label="Find a song">
+      <svg class="ic"><use href="#i-search"/></svg><span class="lbl">Song</span>
+    </button>
+    <button id="btnSettings" class="ctl" type="button" aria-label="Settings">
+      <svg class="ic"><use href="#i-tune"/></svg><span class="lbl">Settings</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ============ Song search sheet ============ -->
+<section id="searchSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="searchHeading">
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <h2 id="searchHeading">Find a song</h2>
+      <button class="close" type="button" data-close>Close</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" type="button" data-tab="find" role="tab">Search</button>
+      <button class="tab" type="button" data-tab="paste" role="tab">Paste lyrics</button>
+    </div>
+
+    <div id="paneFind" class="tabpane">
+      <form id="searchForm" class="searchrow" autocomplete="off">
+        <input id="searchInput" type="search" placeholder="Song and artist, e.g. Mr Brightside Killers" enterkeyhint="search" spellcheck="false">
+        <button type="submit" class="primary">Search</button>
+      </form>
+      <div id="searchStatus" class="muted"></div>
+      <ul id="results" class="results"></ul>
+    </div>
+
+    <div id="panePaste" class="tabpane hidden">
+      <input id="pasteTitle" type="text" placeholder="Title (optional)">
+      <textarea id="pasteText" placeholder="Paste LRC lyrics (lines that start with times like [00:12.34]) or plain lyrics"></textarea>
+      <button id="pasteLoad" class="primary" type="button">Use these lyrics</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Settings sheet ============ -->
+<section id="settingsSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="settingsHeading">
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <h2 id="settingsHeading">Settings</h2>
+      <button class="close" type="button" data-close>Close</button>
+    </div>
+
+    <div class="card">
+      <h3>Display</h3>
+      <div class="row">
+        <span class="row-label">Text size</span>
+        <div class="seg" id="sizeSeg">
+          <button type="button" data-size="M">M</button>
+          <button type="button" data-size="L">L</button>
+          <button type="button" data-size="XL">XL</button>
+          <button type="button" data-size="XXL">XXL</button>
+        </div>
+      </div>
+      <label class="row toggle">
+        <span class="row-label">Progress line under the current lyric</span>
+        <input id="optBar" type="checkbox">
+      </label>
+    </div>
+
+    <div class="card">
+      <h3>Spotify (hands-free)</h3>
+      <p class="help">Follows whatever your Spotify account is playing, including the car's Spotify app. Needs your own free Spotify developer app and an active Premium plan. Setup steps are in the README.</p>
+      <div class="row"><span class="row-label">Status</span><span id="spStatus" class="pill">Not connected</span></div>
+      <label class="field">
+        <span>Spotify Client ID</span>
+        <input id="spClientId" type="text" placeholder="32-character Client ID from developer.spotify.com" spellcheck="false" autocapitalize="off">
+      </label>
+      <div class="field">
+        <span>Redirect URI to paste into your Spotify app</span>
+        <code id="spRedirect" class="code"></code>
+      </div>
+      <div class="btnrow">
+        <button id="spConnect" class="primary" type="button">Connect Spotify</button>
+        <button id="spDisconnect" class="secondary" type="button">Disconnect</button>
+      </div>
+      <label class="row toggle">
+        <span class="row-label">Follow what Spotify is playing</span>
+        <input id="optFollow" type="checkbox">
+      </label>
+      <div class="row">
+        <span class="row-label">Saved Spotify timing correction: <b id="spOffsetVal">0.0 s</b></span>
+        <button id="spOffsetReset" class="secondary small" type="button">Reset</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Listen (identify the song with the microphone)</h3>
+      <p class="help">Records a few seconds of cabin audio, identifies the song with AudD, then jumps the lyrics to the right spot. Works with any source: radio, Apple Music, Bluetooth. Needs Tesla software 2026.26 or newer.</p>
+      <label class="field">
+        <span>AudD API token</span>
+        <input id="auddToken" type="text" placeholder="From dashboard.audd.io (type test to try a few free IDs)" spellcheck="false" autocapitalize="off">
+      </label>
+      <label class="field">
+        <span>Proxy URL (optional, only if Listen can't reach AudD directly)</span>
+        <input id="auddProxy" type="url" placeholder="https://your-worker.your-name.workers.dev" spellcheck="false" autocapitalize="off">
+      </label>
+      <div class="row">
+        <span class="row-label">Clip length</span>
+        <div class="seg" id="clipSeg">
+          <button type="button" data-clip="6">6 s</button>
+          <button type="button" data-clip="8">8 s</button>
+          <button type="button" data-clip="10">10 s</button>
+        </div>
+      </div>
+      <label class="row toggle">
+        <span class="row-label">Listen again automatically when a song ends (uses more IDs)</span>
+        <input id="optAutoListen" type="checkbox">
+      </label>
+      <div class="row">
+        <span class="row-label">Microphone test</span>
+        <div class="btnrow tight">
+          <button id="micTest" class="secondary small" type="button">Start test</button>
+          <button id="micRelease" class="secondary small" type="button">Release mic</button>
+        </div>
+      </div>
+      <div class="meter" aria-hidden="true"><div id="micMeter"></div></div>
+      <div id="micReadout" class="muted">Play music at your normal volume, then start the test.</div>
+    </div>
+
+    <div class="card">
+      <h3>What this browser supports</h3>
+      <dl id="diag" class="diag"></dl>
+    </div>
+
+    <p class="credits">Lyrics from <b>LRCLIB</b> (lrclib.net), a free community database. Song ID by <b>AudD</b>. Spotify data via the Spotify Web API. Personal use only.</p>
+  </div>
+</section>
+
+<script src="app.js" defer></script>
+</body>
+</html>
